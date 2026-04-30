@@ -15,11 +15,15 @@ class AttemptLimiter(
 
     fun isBlocked(nowEpochSeconds: Long = clock.nowEpochSeconds()): Boolean {
         // TODO(D05-1): return true while the cooldown window is active.
-        return false
+        return nowEpochSeconds < blockedUntilEpochSeconds
     }
 
     fun recordFailure(nowEpochSeconds: Long = clock.nowEpochSeconds()) {
         // TODO(D05-2): increment failures and arm the cooldown after reaching maxFailures.
+        failures++
+        if (failures >= maxFailures) {
+            blockedUntilEpochSeconds = nowEpochSeconds + cooldownSeconds
+        }
     }
 
     fun recordSuccess() {

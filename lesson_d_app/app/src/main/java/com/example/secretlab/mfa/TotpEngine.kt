@@ -10,18 +10,21 @@ class TotpEngine(
     private val clock: EpochClock = SystemEpochClock,
 ) {
     fun generate(secretBase32: String, epochSeconds: Long = clock.nowEpochSeconds()): String {
+        // TODO(D03-1): decode the Base32 secret and generate the RFC 6238 code for the current step.
         val counter = timeStep(epochSeconds)
-        val decodedSecret = Base32Codec.decode(secretBase32)
-        return hotpFromDecodedSecret(decodedSecret, counter, digits)
+        return hotpFromDecodedSecret(Base32Codec.decode(secretBase32), counter, digits)
     }
 
     fun verify(secretBase32: String, code: String, epochSeconds: Long = clock.nowEpochSeconds()): Boolean {
         val normalizedCode = code.trim()
         val currentStep = timeStep(epochSeconds)
 
+        // TODO(D03-2): compare the provided code against the current time step and the
+        // neighbouring steps according to `window`.
         for (offset in -window..window) {
-            val candidate = generate(secretBase32, (currentStep + offset) * stepSeconds)
-            if (candidate == normalizedCode) {
+            val counter = currentStep + offset
+            if (counter < 0) continue
+            if (hotpFromDecodedSecret(Base32Codec.decode(secretBase32), counter, digits) == normalizedCode) {
                 return true
             }
         }
@@ -74,9 +77,9 @@ class TotpEngine(
             val offset = digest.last().toInt() and 0x0F
             val binary =
                 ((digest[offset].toInt() and 0x7F) shl 24) or
-                    ((digest[offset + 1].toInt() and 0xFF) shl 16) or
-                    ((digest[offset + 2].toInt() and 0xFF) shl 8) or
-                    (digest[offset + 3].toInt() and 0xFF)
+                        ((digest[offset + 1].toInt() and 0xFF) shl 16) or
+                        ((digest[offset + 2].toInt() and 0xFF) shl 8) or
+                        (digest[offset + 3].toInt() and 0xFF)
 
             val otp = binary % pow10(digits)
             return otp.toString().padStart(digits, '0')

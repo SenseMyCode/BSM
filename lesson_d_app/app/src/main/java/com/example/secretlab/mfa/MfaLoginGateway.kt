@@ -39,10 +39,10 @@ class MfaLoginGateway(
             return MfaDecision(granted = false, reason = "cooldown")
         }
 
-        val mail = activeChallenges.values.firstOrNull()
+        // TODO(D06-1): bind verification to the exact `challengeId` instead of accepting any live challenge.
+        val mail = activeChallenges[challengeId]
             ?: return MfaDecision(granted = false, reason = "missing_challenge")
 
-        // TODO(D06-1): bind verification to the exact `challengeId` instead of accepting any live challenge.
         if (!totpEngine.verify(secretBase32, code, epochSeconds)) {
             limiter.recordFailure(epochSeconds)
             return MfaDecision(granted = false, reason = "bad_code")
@@ -50,6 +50,9 @@ class MfaLoginGateway(
 
         val currentStep = totpEngine.timeStep(epochSeconds)
         // TODO(D06-2): reject codes that reuse a TOTP value already accepted in the same time step.
+        if (usedTimeSteps.contains(currentStep)) {
+            return MfaDecision(granted = false, reason = "replay")
+        }
         usedTimeSteps.add(currentStep)
 
         limiter.recordSuccess()
